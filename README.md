@@ -35,3 +35,9 @@
 ![image](https://github.com/user-attachments/assets/28c4c66f-8a0e-42fd-b72f-fdc567b911d5)
 
 ![image](https://github.com/user-attachments/assets/b2b62806-0478-4f2d-ad48-92ee4f27932e)
+
+
+### VirusTotal Analysis
+
+![image](https://github.com/user-attachments/assets/dd34426d-d677-40fb-9864-1f6025d225e7)
+
