@@ -1,8 +1,28 @@
 # Staged-Process-Injection-C
-Staged Process Injector with C
+## Staged Process Injector with obfuscation Techniques including the Native API and offsets
 
--The malware connects to the server and downloads the shellcode (manually written or generated) then tries to inject the shellcode to a vulnerable process that you choose and callback to the listener.
+### STAGE 1 --> connecting to server
 
--The shellcode is downloaded and executed in memory.
+-The malware connects to the attacker's server and downloads the encrypted shellcode "enc_code.bin".
 
--The malware takes one argument which is the PID of the vulnerable process.
+-The encrypted shellcode is downloaded in memory.
+
+### STAGE 2 --> Decryption
+
+-It utilizes XOR decryption to decrypt the shellcode "enc_code.bin" in memory
+
+### STAGE 3 --> Process Injection
+
+-Then it enumerates all the processes in the system and searches for notepad.exe (you can change that in the enum_processes() function).
+
+-The malware then injects the decrypted shellcode into the target process.
+
+
+### EXECUTION
+
+-I commented out most the printf statements to make it stealthier, you can uncomment them in the code and see the details.
+
+
+![image](https://github.com/user-attachments/assets/6867d463-5a04-4c9d-9bbb-2328c46dc667)
+
+![image](https://github.com/user-attachments/assets/b2b62806-0478-4f2d-ad48-92ee4f27932e)
