@@ -8,9 +8,9 @@
 
 -Then I wrote a C program to XOR encrypt the bin file and write it out to an another file called "enc_code.bin"
     
-### STAGE 1 --> connecting to server
+### STAGE 1 --> connecting to HTTP server
 
--The malware connects to the attacker's server and downloads the encrypted shellcode "enc_code.bin".
+-The malware connects to the attacker's HTTP server and downloads the encrypted shellcode "enc_code.bin".
 
 -The encrypted shellcode is downloaded in memory.
 
