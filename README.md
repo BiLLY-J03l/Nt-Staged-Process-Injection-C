@@ -41,3 +41,9 @@
 
 ![image](https://github.com/user-attachments/assets/dd34426d-d677-40fb-9864-1f6025d225e7)
 
+### Updated (5th Feb 2025)
+
+-I added the Native equivalant of CreateMutexA which are NtOpenMutant and NtCreateMutant.
+
+-Also, I enhanced the http stage to be called infinitely if the server wasn't listening, ensuring that the malware never exits till it downloads the shellcode (enc_code.bin)
+
