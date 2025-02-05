@@ -342,8 +342,32 @@ typedef NTSTATUS (NTAPI * NtSetInformationThread)(
 );
 
 
+//NtOpenMutant
+typedef NTSTATUS (NTAPI * NtOpenMutant)(
+    _Out_ PHANDLE MutantHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _In_ PCOBJECT_ATTRIBUTES ObjectAttributes
+);
 
+//NtCreateMutant
+typedef NTSTATUS (NTAPI * NtCreateMutant)(
+    _Out_ PHANDLE MutantHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _In_opt_ PCOBJECT_ATTRIBUTES ObjectAttributes,
+    _In_ BOOLEAN InitialOwner
+);
 
+//RtlInitUnicodeString
+FORCEINLINE VOID RtlInitUnicodeString(
+    _Out_ PUNICODE_STRING DestinationString,
+    _In_opt_z_ PCWSTR SourceString
+    )
+{
+    if (SourceString)
+        DestinationString->MaximumLength = (DestinationString->Length = (USHORT)(wcslen(SourceString) * sizeof(WCHAR))) + sizeof(UNICODE_NULL);
+    else
+        DestinationString->MaximumLength = DestinationString->Length = 0;
 
-
+    DestinationString->Buffer = (PWCH)SourceString;
+}
 
