@@ -47,7 +47,7 @@
 
 -Also, I enhanced the http stage to be called infinitely if the server wasn't listening, ensuring that the malware never exits till it downloads the shellcode (enc_code.bin)
 
--The enhancment decreased the detection rates from 7/72 to 5/72 in VirusTotal
+-The Native API Mutex enhancment decreased the detection rates from 7/72 to 5/72 in VirusTotal
 
 ![image](https://github.com/user-attachments/assets/12938834-6402-4ed8-910e-10a1e642d7cc)
 
