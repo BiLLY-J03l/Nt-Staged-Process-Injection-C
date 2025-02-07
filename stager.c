@@ -125,7 +125,7 @@ HANDLE m_stuff(NtOpenMutant NT_OpenMutant, NtCreateMutant NT_CreateMutant,HANDLE
 		return EXIT_FAILURE;
 	}
 	printf("[NT_CreateMutant] Created Mutant, Handle -> [0x%p]\n",hMux);
-	system("pause");
+	//system("pause");
 	
 	return hMux;
 }
